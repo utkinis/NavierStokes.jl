@@ -9,9 +9,9 @@ using ParallelStencil.FiniteDifferences2D
 @views function runme()
     # physics
     ## dimensionally independent
-    ly        = 1000.0 # [m]
-    ρ         = 1000.0 # [kg/m^3]
-    vin       = 100.0 # [m/s]
+    ly        = 1.0 # [m]
+    ρ         = 1.0 # [kg/m^3]
+    vin       = 1.0 # [m/s]
     ## scales
     psc       = ρ*vin^2
     ## nondimensional parameters
