@@ -33,14 +33,14 @@ using ParallelStencil.FiniteDifferences2D
     b2        = (b_ly*ly)^2
     sinβ,cosβ = sincos(β)
     # numerics
-    ny        = 255
+    ny        = 511
     nx        = ceil(Int,ny*lx_ly)
     εit       = 1e-3
     niter     = 50*nx
     nchk      = 1*(nx-1)
     nvis      = 10
-    nt        = 10000
-    nsave     = 50
+    nt        = 2000
+    nsave     = 10
     CFLτ      = 0.9/sqrt(2)
     CFL_visc  = 1/4.1
     CFL_adv   = 1.0
@@ -69,6 +69,7 @@ using ParallelStencil.FiniteDifferences2D
     Vprof     = Data.Array([4*vin*x/lx*(1.0-x/lx) for x=LinRange(0.5dx,lx-0.5dx,nx,)])
     Vy[:,1]  .= Vprof
     Pr       .= .-(yc'.-ly/2).*ρ.*g
+    matwrite("out_vis/step_0.mat",Dict("Pr"=>Array(Pr),"Vx"=>Array(Vx),"Vy"=>Array(Vy),"C"=>Array(C),"dx"=>dx,"dy"=>dy))
     # action
     for it = 1:nt
         err_evo = Float64[]; iter_evo = Float64[]
@@ -152,7 +153,7 @@ end
     return
 end
 
-function backtrack!(A,A_o,vxc,vyc,dt,dx,dy,ix,iy)
+@inline function backtrack!(A,A_o,vxc,vyc,dt,dx,dy,ix,iy)
     δx,δy    = dt*vxc/dx, dt*vyc/dy
     ix1      = clamp(floor(Int,ix-δx),1,size(A,1))
     iy1      = clamp(floor(Int,iy-δy),1,size(A,2))
@@ -164,7 +165,7 @@ function backtrack!(A,A_o,vxc,vyc,dt,dx,dy,ix,iy)
     return
 end
 
-lerp(a,b,t) = b*t + a*(1-t)
+@inline lerp(a,b,t) = b*t + a*(1-t)
 
 @parallel_indices (ix,iy) function advect!(Vx,Vx_o,Vy,Vy_o,C,C_o,dt,dx,dy)
     if ix > 1 && ix < size(Vx,1) && iy <= size(Vx,2)

@@ -1,2 +1,6 @@
 out_vis/
+.vscode/
 *.gif
+*.mp4
+*.png
+*.asv
