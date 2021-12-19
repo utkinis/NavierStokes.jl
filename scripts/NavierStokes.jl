@@ -1,12 +1,15 @@
-using LinearAlgebra,Printf
-using MAT,Plots
-
+const USE_GPU = false
 using ParallelStencil
 using ParallelStencil.FiniteDifferences2D
+@static if USE_GPU
+    @init_parallel_stencil(CUDA, Float64, 2)
+else
+    @init_parallel_stencil(Threads, Float64, 2)
+end
+using LinearAlgebra, Printf
+using MAT, Plots
 
-@init_parallel_stencil(CUDA,Float64,2)
-
-@views function runme()
+@views function runme(; do_vis=true, do_save=false)
     # physics
     ## dimensionally independent
     ly        = 1.0 # [m]
@@ -33,7 +36,7 @@ using ParallelStencil.FiniteDifferences2D
     b2        = (b_ly*ly)^2
     sinβ,cosβ = sincos(β)
     # numerics
-    ny        = 511
+    ny        = 255
     nx        = ceil(Int,ny*lx_ly)
     εit       = 1e-3
     niter     = 50*nx
@@ -69,7 +72,7 @@ using ParallelStencil.FiniteDifferences2D
     Vprof     = Data.Array([4*vin*x/lx*(1.0-x/lx) for x=LinRange(0.5dx,lx-0.5dx,nx,)])
     Vy[:,1]  .= Vprof
     Pr       .= .-(yc'.-ly/2).*ρ.*g
-    matwrite("out_vis/step_0.mat",Dict("Pr"=>Array(Pr),"Vx"=>Array(Vx),"Vy"=>Array(Vy),"C"=>Array(C),"dx"=>dx,"dy"=>dy))
+    if do_save matwrite("out_vis/step_0.mat",Dict("Pr"=>Array(Pr),"Vx"=>Array(Vx),"Vy"=>Array(Vy),"C"=>Array(C),"dx"=>dx,"dy"=>dy)) end
     # action
     for it = 1:nt
         err_evo = Float64[]; iter_evo = Float64[]
@@ -81,8 +84,7 @@ using ParallelStencil.FiniteDifferences2D
         for iter = 1:niter
             @parallel update_dPrdτ!(Pr,dPrdτ,∇V,ρ,dt,dτ,damp,dx,dy)
             @parallel update_Pr!(Pr,dPrdτ,dτ)
-            Pr[1,:] .= Pr[2,:]; Pr[end,:] .= Pr[end-1,:];
-            Pr[:,1] .= Pr[:,2]; Pr[:,end] .= 0.0;
+            set_bc_Pr!(Pr, 0.0)
             if iter % nchk == 0
                 @parallel compute_res!(Rp,Pr,∇V,ρ,dt,dx,dy)
                 err = maximum(abs.(Rp))*ly^2/psc
@@ -94,19 +96,17 @@ using ParallelStencil.FiniteDifferences2D
         @parallel correct_V!(Vx,Vy,Pr,dt,ρ,dx,dy)
         @parallel update_∇V!(∇V,Vx,Vy,dx,dy)
         @parallel set_sphere!(C,Vx,Vy,a2,b2,ox,oy,sinβ,cosβ,lx,ly,dx,dy)
-        Vx[:,1]   .= Vx[:,2]; Vx[:,end] .= Vx[:,end-1]
-        Vy[1,:]   .= Vy[2,:]; Vy[end,:] .= Vy[end-1,:]
-        Vy[:,end] .= Vy[:,end-1]; Vy[:,1] .= Vprof
-        Vx_o .= Vx; Vy_o .= Vy; C_o = C
+        set_bc_Vel!(Vx, Vy, Vprof)
+        Vx_o .= Vx; Vy_o .= Vy; C_o .= C
         @parallel advect!(Vx,Vx_o,Vy,Vy_o,C,C_o,dt,dx,dy)
-        if it % nvis == 0
+        if do_vis && it % nvis == 0
             p1=heatmap(xc,yc,Array(Pr)';aspect_ratio=1,xlims=(-lx/2,lx/2),ylims=(-ly/2,ly/2),title="Pr")
             p2=plot(iter_evo,err_evo;yscale=:log10)
             p3=heatmap(xc,yc,Array(C)';aspect_ratio=1,xlims=(-lx/2,lx/2),ylims=(-ly/2,ly/2),title="C")
             p4=heatmap(xc,yv,Array(Vy)';aspect_ratio=1,xlims=(-lx/2,lx/2),ylims=(-ly/2,ly/2),title="Vy")
             display(plot(p1,p2,p3,p4))
         end
-        if it % nsave == 0
+        if do_save && it % nsave == 0
             matwrite("out_vis/step_$it.mat",Dict("Pr"=>Array(Pr),"Vx"=>Array(Vx),"Vy"=>Array(Vy),"C"=>Array(C),"dx"=>dx,"dy"=>dy))
         end
     end
@@ -128,7 +128,7 @@ end
 end
 
 @parallel function update_∇V!(∇V,Vx,Vy,dx,dy)
-    @all(∇V) = @d_xa(Vx)/dx + @d_ya(Vy)/dy
+    @all(∇V) = @∇V()
     return
 end
 
@@ -150,6 +150,43 @@ end
 @parallel function correct_V!(Vx,Vy,Pr,dt,ρ,dx,dy)
     @inn(Vx) = @inn(Vx) - dt/ρ*@d_xi(Pr)/dx
     @inn(Vy) = @inn(Vy) - dt/ρ*@d_yi(Pr)/dy
+    return
+end
+
+@parallel_indices (iy) function bc_x!(A)
+    A[1  , iy] = A[2    , iy]
+    A[end, iy] = A[end-1, iy]
+    return
+end
+
+@parallel_indices (ix) function bc_y!(A)
+    A[ix, 1  ] = A[ix, 2    ]
+    A[ix, end] = A[ix, end-1]
+    return
+end
+
+@parallel_indices (ix) function bc_yV!(A, V)
+    A[ix, 1  ] = V[ix]
+    A[ix, end] = A[ix, end-1]
+    return
+end
+
+@parallel_indices (ix) function bc_yval!(A, val)
+    A[ix, 1  ] = A[ix, 2]
+    A[ix, end] = val
+    return
+end
+
+function set_bc_Vel!(Vx, Vy, Vprof)
+    @parallel bc_y!(Vx)
+    @parallel bc_x!(Vy)
+    @parallel bc_yV!(Vy, Vprof)
+    return
+end
+
+function set_bc_Pr!(Pr, val)
+    @parallel bc_x!(Pr)
+    @parallel bc_yval!(Pr, val)
     return
 end
 
