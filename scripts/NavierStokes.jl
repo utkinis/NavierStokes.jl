@@ -72,7 +72,7 @@ using MAT, Plots
     Vprof     = Data.Array([4*vin*x/lx*(1.0-x/lx) for x=LinRange(0.5dx,lx-0.5dx,nx,)])
     Vy[:,1]  .= Vprof
     Pr       .= .-(yc'.-ly/2).*ρ.*g
-    if do_save matwrite("out_vis/step_0.mat",Dict("Pr"=>Array(Pr),"Vx"=>Array(Vx),"Vy"=>Array(Vy),"C"=>Array(C),"dx"=>dx,"dy"=>dy)) end
+    if do_save !ispath("./out_vis") && mkdir("./out_vis"); matwrite("out_vis/step_0.mat",Dict("Pr"=>Array(Pr),"Vx"=>Array(Vx),"Vy"=>Array(Vy),"C"=>Array(C),"dx"=>dx,"dy"=>dy)) end
     # action
     for it = 1:nt
         err_evo = Float64[]; iter_evo = Float64[]
@@ -89,7 +89,7 @@ using MAT, Plots
                 @parallel compute_res!(Rp,Pr,∇V,ρ,dt,dx,dy)
                 err = maximum(abs.(Rp))*ly^2/psc
                 push!(err_evo, err); push!(iter_evo,iter/ny)
-                @printf("  #iter = %d, err = %3.1e\n", iter, err)
+                @printf("  #iter = %d, err = %1.3e\n", iter, err)
                 if err < εit || !isfinite(err) break end
             end
         end
