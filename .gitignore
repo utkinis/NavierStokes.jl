@@ -1,4 +1,6 @@
+Manifest.toml
 out_vis/
+.DS_Store
 .vscode/
 *.mp4
 *.png
