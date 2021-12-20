@@ -94,7 +94,6 @@ using MAT, Plots
             end
         end
         @parallel correct_V!(Vx,Vy,Pr,dt,ρ,dx,dy)
-        @parallel update_∇V!(∇V,Vx,Vy,dx,dy)
         @parallel set_sphere!(C,Vx,Vy,a2,b2,ox,oy,sinβ,cosβ,lx,ly,dx,dy)
         set_bc_Vel!(Vx, Vy, Vprof)
         Vx_o .= Vx; Vy_o .= Vy; C_o .= C
