@@ -4,4 +4,4 @@ NavierStokes.jl is a technical demo featuring Navier-Stokes solver based on a pr
 
 The animation depicts von Karman vortex sheet for Reynolds number of 1e6 resolved on a numerical grid composed of 2559x4095 grid points (running the [`NavierStokes_Re6.jl`](scripts/NavierStokes_Re6.jl) on a Nvidia Tesla V100 GPU).
 
-<img src="./vis/anim/ns_re1e6_2559x4095_small.gif" alt="von Karman vortex sheet" width="800">
+<img src="./vis/anim/ns_re1e6_2559x4095_small.gif" alt="von Karman vortex sheet" width="600">
