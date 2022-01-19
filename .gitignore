@@ -1,5 +1,6 @@
 Manifest.toml
 out_vis/
+tmp/
 .DS_Store
 .vscode/
 *.mp4

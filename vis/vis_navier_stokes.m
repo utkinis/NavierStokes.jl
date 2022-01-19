@@ -2,7 +2,7 @@ clear;figure(1);clf
 ly = 1.0;
 lx = 0.6;
 iframe = 0;
-for it = 10:10:2000
+for it = 10:10:10000
     load(['../scripts/out_vis/step_' int2str(it) '.mat'])
     if it == 10
         [xc,yc] = ndgrid(1:size(Pr,1),1:size(Pr,2));
@@ -21,7 +21,7 @@ for it = 10:10:2000
     nexttile(3);imagesc(Pr');caxis([-1 0.5])
     shading flat;axis image;colorbar;colormap(gca,turbo);set(gca,"YDir","normal");title('\itp')
     hold on
-    st = 20;
+    st = 100;
     quiver(xc(1:st:end,1:st:end),yc(1:st:end,1:st:end),Vxc(1:st:end,1:st:end),Vyc(1:st:end,1:st:end),1.0,'filled','LineWidth',1,'Color','w')
     hold off
     axis([1 size(Pr,1) 1 size(Pr,2)])
